@@ -4,8 +4,11 @@ namespace CodingBerlin\LocalizationPlugin\Command;
 
 use Sylius\Component\Addressing\Model\CountryInterface;
 use Sylius\Component\Addressing\Model\ZoneMember;
+use Sylius\Component\Core\Model\Channel;
+use Sylius\Component\Core\Model\TaxRate;
 use Sylius\Component\Currency\Model\Currency;
 use Sylius\Component\Locale\Model\Locale;
+use Sylius\Component\Taxation\Model\TaxCategory;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -31,9 +34,9 @@ class SyliusLocalizationCommand extends ContainerAwareCommand {
                 'name' => 'Deutschland',
                 'scope' => 'all', //shipping & taxes
             ],
-            'taxes' => [
-                'books' => 7.0,
-                'food_general' => 7.0,
+            'tax_rates' => [
+                'reduced' => 7.0,
+                'general' => 19.0,
                 'default' => 19.0
             ]
         ]
@@ -44,18 +47,50 @@ class SyliusLocalizationCommand extends ContainerAwareCommand {
         $countryCode = $input->getArgument('countryCode');
         $config = $this->localeConfig[$countryCode];
 
-        $zone = $this->addZone($config['zone']);
         $locale = $this->addLocale($config['locale']);
         $currency = $this->addCurrency($config['currency']);
+
+        $zone = $this->addZone($config['zone']);
         $country = $this->addCountry($config['country']);
+        //$taxes = $this->addTaxes($config['country'], $config['tax_rates']);
 
-        $localeRepo = $this->getContainer()->get('sylius.repository.locale');
-        $locales = $localeRepo->findAll();
+        $this->activateConfigOnChannel($locale, $currency);
 
-        foreach($locales as $locale) {
-            /** @var $locale Locale */
-            $output->writeln($locale->getName());
+    }
+
+    protected function activateConfigOnChannel(Locale $locale, Currency $currency) {
+        $repo = $this->getContainer()->get('sylius.repository.channel');
+        /** @var Channel $aChannel */
+        $aChannel = $repo->findOneBy([]);
+        $aChannel->addLocale($locale);
+        $aChannel->addCurrency($currency);
+
+        $this->getContainer()->get('sylius.manager.channel')->flush($aChannel);
+        return $aChannel;
+    }
+
+    protected function addTaxes($country, $rateConfig ) {
+
+        foreach($rateConfig as $rateCode => $rate) {
+            /** @var TaxRate $rate */
+            $rate = $this->getContainer()->get('sylius.factory.tax_rate')->createNew();
+            $code = $country."_".$rateCode;
+            $rate->setCode($code);
+            $rate->setAmount($rate);
+
+            $this->getContainer()->get('sylius.manager.tax_rate')->flush($rate);
         }
+
+
+        /** @var TaxCategory $taxCategory */
+        /*$defaultCategory = $this->getContainer()->get('sylius.factory.tax_category')->createNew();
+        $defaultCategory->setCode('de_default');
+        $defaultCategory->setName('default');
+
+        $reducedCategory = $this->getContainer()->get('sylius.factory.tax_category')->createNew();
+        $reducedCategory->setCode('de_reduced');
+        $reducedCategory->setName('reduced');
+        */
     }
 
     protected function addZone($config) {
@@ -128,4 +163,6 @@ class SyliusLocalizationCommand extends ContainerAwareCommand {
         $currencyRepository->add($currency);
         return $currency;
     }
+
+
 }
