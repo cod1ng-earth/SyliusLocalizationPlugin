@@ -1,5 +1,5 @@
 {
-    "name": "sylius/localization-plugin",
+    "name": "codingberlin/sylius-localization-plugin",
     "type": "sylius-plugin",
     "description": "Localization plugin for Sylius.",
     "license": "MIT",
